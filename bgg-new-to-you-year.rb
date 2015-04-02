@@ -73,7 +73,7 @@ class NewToYouYear
         :page     => page_num,
       }).retrieve
 
-      puts "PAGE " + page_num.to_s + " | COUNT = " + plays.root.children.count.to_s
+      #puts "PAGE " + page_num.to_s + " | COUNT = " + plays.root.children.count.to_s
       num_results = plays.root.children.count
 
       # First, get this year's plays
@@ -114,7 +114,7 @@ class NewToYouYear
           :page    => page_num,
         }).retrieve
     
-      puts "PAGE " + page_num.to_s + " | COUNT = " + previous_plays.root.children.count.to_s
+      #puts "PAGE " + page_num.to_s + " | COUNT = " + previous_plays.root.children.count.to_s
       num_results = previous_plays.root.children.count
 
       _games.each do |objectid, data|
@@ -131,13 +131,15 @@ class NewToYouYear
   end
 
   def print_games(_games)
+    # sort games by title (name)
+    _games = _games.sort_by { |objectid, data| data[:name] }
     puts "=== New Games Played by " + @options[:username].to_s + " in " + @options[:year].to_s + " ==="
     # Print each game's name
     _games.each do |objectid, data|
       puts data[:name]
     end
     # print total number of new games this year
-    puts _games.length.to_s + " new games played in " + @options[:year].to_s + "."
+    puts "=== " + _games.length.to_s + " new games in " + @options[:year].to_s + " ==="
   end
 
   public :initialize
