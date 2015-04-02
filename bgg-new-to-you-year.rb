@@ -54,50 +54,84 @@ class NewToYouYear
 
   def retrieve_plays(start_date = @options[:start_date], end_date = @options[:end_date], username = @options[:username])
     # Retrieve games played in year
-    plays = BGG_API.new('plays', {
-      :username => username,
-      :mindate  => start_date,
-      :maxdate  => end_date,
-      :subtype  => 'boardgame'
-    }).retrieve
-
+    page_num = 0
+    num_results = 0;
     _games = Hash.new
 
-    # First, get this year's plays
-    plays.css('plays > play').each do |play|
-      quantity = play.attr('quantity')
-      item = play.search('item')
-      name = item.attr('name').content
-      objectid = item.attr('objectid').content.to_i
+    # as long as we're not getting an empty result (only the 1 root node)
+    while num_results != 1 do
+      #get the next page of results
+      page_num += 1    
 
-      # Create the hashes if need be
-      unless _games.has_key? objectid
-        _games[objectid] = Game.new
-        _games[objectid][:objectid] = objectid
-        _games[objectid][:name] = name
-      end
-
-      # Increment play count
-      _games[objectid][:plays] = _games[objectid][:plays] + quantity.to_i
-    end
-
-    _games.each do |objectid, data|
-      # Filter out games I've played before (before mindate)
-      puts "Making BGG Request for previous plays"
-      previous_plays = BGG_API.new('plays', {
+      plays = BGG_API.new('plays', {
         :username => username,
-        :maxdate  => start_date,
-        :id       => objectid
+        :mindate  => start_date,
+        :maxdate  => end_date,
+  # not sure if this is necessary
+  #      :subtype  => 'boardgame'
+        :page     => page_num,
       }).retrieve
 
-      if previous_plays.css('plays').first['total'].to_i > 0
-        _games.delete(objectid)
-        next
+      puts "PAGE " + page_num.to_s + " | COUNT = " + plays.root.children.count.to_s
+      num_results = plays.root.children.count
+
+      # First, get this year's plays
+      plays.css('plays > play').each do |play|
+        quantity = play.attr('quantity')
+        item = play.search('item')
+        name = item.attr('name').content
+        objectid = item.attr('objectid').content.to_i
+
+        # Create the hashes if need be
+        unless _games.has_key? objectid
+          _games[objectid] = Game.new
+          _games[objectid][:objectid] = objectid
+          _games[objectid][:name] = name
+        end
+
+        # Increment play count
+        _games[objectid][:plays] = _games[objectid][:plays] + quantity.to_i
       end
     end
+
+    puts "TOTAL PAGES FOR YEAR GIVEN: " + (page_num-1).to_s
+
+
+    #make one request for grabbing all games played before given year
+    #we can only get 100 plays at a time, so we do this in multiple pages
+    page_num = 0
+    num_results = 0;
+
+    # as long as we're not getting an empty result (only the 1 root node)
+    while num_results != 1 do
+      page_num += 1
+      previous_plays = BGG_API.new('plays', {
+          :username => username,
+          # maybe this should be start_date minus 1 day?
+          :maxdate => start_date, 
+  #        :subtype => 'boardgame',
+          :page    => page_num,
+        }).retrieve
+    
+      puts "PAGE " + page_num.to_s + " | COUNT = " + previous_plays.root.children.count.to_s
+      num_results = previous_plays.root.children.count
+
+      _games.each do |objectid, data|
+        # filter out previously played games
+        if previous_plays.xpath("//item[@objectid='" + objectid.to_s + "']").any? 
+          #puts "deleting game " + _games[objectid][:name].to_s
+          _games.delete(objectid)
+        end        
+      end
+
+    end
+
+    puts "TOTAL PAGES FOR PREVIOUS PLAYS: " + (page_num-1).to_s
+    return _games
   end
 
   def print_games(_games)
+    puts "=== New Games Played by " + @options[:username].to_s + " in " + @options[:year].to_s + " ==="
     # Print each game's name
     _games.each do |objectid, data|
       puts data[:name]
@@ -137,6 +171,10 @@ class BGG_API
     # Make sure we're receving a 200 result, otherwise wait and try again
     request = open(query)
     while (request.status[0] != "200")
+      if (request.status[0] = "503")
+        puts "503 ERROR, CHILL FOR A BIT SON"
+        break
+      end     
       sleep 2
       request = open(query)
     end
