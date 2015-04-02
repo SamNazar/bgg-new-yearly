@@ -7,9 +7,6 @@
 # The modified script merely lists the new games a user has logged in a given calendar year
 # and provides a count of those games.  This is to keep track of challenges like 51-in-15
 # 
-# TODO: If year is not current year, end date should be Dec 31 of that year
-# TODO: It seems that this is making a new request for each new game, fix this
-# 
 
 require 'date'
 require 'optparse'
@@ -30,8 +27,12 @@ class NewToYouYear
     ## start at beginning of year given
     @options[:start_date] = Date.parse(@options[:year].to_s + "-01-01")
 
-    ## end at today
-    @options[:end_date] = todays_date
+    ## end at today, or at dec 31st of the given year if it is not in the current year
+    if (@options[:start_date].year != Date.today.year)
+      @options[:end_date] = Date.parse(@options[:year].to_s + "-12-31")
+    else
+      @options[:end_date] = todays_date
+    end
 
     print_games(retrieve_plays())
   end
@@ -55,11 +56,11 @@ class NewToYouYear
   def retrieve_plays(start_date = @options[:start_date], end_date = @options[:end_date], username = @options[:username])
     # Retrieve games played in year
     page_num = 0
-    num_results = 0;
+    num_results = 201;
     _games = Hash.new
 
-    # as long as we're not getting an empty result (only the 1 root node)
-    while num_results != 1 do
+    # until we get a page of results that is not full
+    until num_results < 201 do
       #get the next page of results
       page_num += 1    
 
@@ -94,16 +95,16 @@ class NewToYouYear
       end
     end
 
-    puts "TOTAL PAGES FOR YEAR GIVEN: " + (page_num-1).to_s
+    puts "TOTAL PAGES FOR YEAR GIVEN: " + page_num.to_s
 
 
     #make one request for grabbing all games played before given year
     #we can only get 100 plays at a time, so we do this in multiple pages
     page_num = 0
-    num_results = 0;
+    num_results = 201;
 
-    # as long as we're not getting an empty result (only the 1 root node)
-    while num_results != 1 do
+    # until we get a page of results that is not full
+    until num_results < 201 do
       page_num += 1
       previous_plays = BGG_API.new('plays', {
           :username => username,
@@ -123,10 +124,9 @@ class NewToYouYear
           _games.delete(objectid)
         end        
       end
-
     end
 
-    puts "TOTAL PAGES FOR PREVIOUS PLAYS: " + (page_num-1).to_s
+    puts "TOTAL PAGES FOR PREVIOUS PLAYS: " + page_num.to_s
     return _games
   end
 
