@@ -171,10 +171,6 @@ class BGG_API
     # Make sure we're receving a 200 result, otherwise wait and try again
     request = open(query)
     while (request.status[0] != "200")
-      if (request.status[0] = "503")
-        puts "503 ERROR, CHILL FOR A BIT SON"
-        break
-      end     
       sleep 2
       request = open(query)
     end
