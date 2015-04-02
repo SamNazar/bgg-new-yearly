@@ -69,7 +69,7 @@ class NewToYouYear
         :mindate  => start_date,
         :maxdate  => end_date,
   # not sure if this is necessary
-  #      :subtype  => 'boardgame'
+        :subtype  => 'boardgame',
         :page     => page_num,
       }).retrieve
 
@@ -110,7 +110,7 @@ class NewToYouYear
           :username => username,
           # maybe this should be start_date minus 1 day?
           :maxdate => start_date, 
-  #        :subtype => 'boardgame',
+          :subtype => 'boardgame',
           :page    => page_num,
         }).retrieve
     
