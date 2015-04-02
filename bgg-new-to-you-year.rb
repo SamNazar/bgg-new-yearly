@@ -1,21 +1,13 @@
 #!/usr/bin/env ruby
 
-# Plans
-# - Break up things into individual files and use the /lib directory? Try to
-#   find examples of this
-# - Provide a way to do the year ago posts, duplicating code at first is fine
-# - Refactor so both calls use the same code
-# - Color code the ratings using BGG's colors
-#   - 10/10 #00cc00
-#   - 9/10  #33cc99
-#   - 8/10  #66ff99
-#   - 7/10  #99ffff
-#   - 6/10  #9999ff
-#   - 5/10  #cc99ff
-#   - 4/10  #ff66cc
-#   - 3/10  #ff6699
-#   - 2/10  #ff3366
-#   - 1/10  #ff0000
+# This is a modified version of Wes Baker's New-To-You script, which was designed to 
+# list new games for a particular month and output a skeleton geeklist post with 
+# ratings.
+# 
+# The modified script merely lists the new games a user has logged in a given calendar year
+# and provides a count of those games.  This is to keep track of challenges like 51-in-15
+# 
+# 
 
 require 'date'
 require 'optparse'
@@ -27,7 +19,7 @@ class NewToYou
   def initialize
     last_month = Date.today << 1
     @options = {
-      :username     => 'wesbaker',
+      :username     => 'sam n',
       :month        => last_month.month,
       :year         => last_month.year,
     }
@@ -36,12 +28,17 @@ class NewToYou
 
     # Establish previous start and end dates
     last_month = Date.new(@options[:year], @options[:month])
-    @options[:start_date] = (last_month - 1).to_s
+    #@options[:start_date] = (last_month - 1).to_s
+    ## start at beginning of year given
+    @options[:start_date] = Date.parse(@options[:year].to_s + "-01-01")
 
     # last_month >> 1 gets the same time as above + 1 month, - 1 subtracts a day
-    @options[:end_date] = ((last_month >> 1) - 1).to_s
+    #@options[:end_date] = ((last_month >> 1) - 1).to_s
 
-    print_plays(retrieve_plays())
+    ## end at today
+    @options[:end_date] = Date.today
+
+    print_games(retrieve_plays())
   end
 
   # Parse out command line options
@@ -107,39 +104,49 @@ class NewToYou
       end
 
       # Now, figure out what my current ratings and plays for that game is
-      game_info = BGG_API.new('collection', {
-        :username => username,
-        :id       => objectid,
-        :stats    => 1
-      }).retrieve
+#      game_info = BGG_API.new('collection', {
+#        :username => username,
+#        :id       => objectid,
+#        :stats    => 1
+#      }).retrieve
 
       # Error out
-      if not game_info.at_css('rating')
-        game_info = BGG_API.new('thing', {
-          :id       => objectid
-        }).retrieve
-        name = game_info.css('name').first['value']
-        puts "#{name} not rated. Rate the game and run this script again:"
-        puts "\thttp://boardgamegeek.com/collection/user/#{username}?played=1&rated=0&ff=1"
-      end
+#      if not game_info.at_css('rating')
+#        game_info = BGG_API.new('thing', {
+#          :id       => objectid
+#        }).retrieve
+#        name = game_info.css('name').first['value']
+#        puts "#{name} not rated. Rate the game and run this script again:"
+#        puts "\thttp://boardgamegeek.com/collection/user/#{username}?played=1&rated=0&ff=1"
+#      end
 
-      if game_info.at_css('rating').is_a? Nokogiri::XML::Element
-        _games[objectid][:rating] = game_info.css('rating').attr('value').content.to_i
-        _games[objectid][:comment] = game_info.css('comment').text
-        _games[objectid][:imageid] = game_info.css('image').text.match(/\d+/)[0].to_i
+#      if game_info.at_css('rating').is_a? Nokogiri::XML::Element
+#        _games[objectid][:rating] = game_info.css('rating').attr('value').content.to_i
+#        _games[objectid][:comment] = game_info.css('comment').text
+#        _games[objectid][:imageid] = game_info.css('image').text.match(/\d+/)[0].to_i
 
         #Figure out plays since
-        total_plays = game_info.css('numplays').first.text.to_i
-        _games[objectid][:plays_since] = total_plays - _games[objectid][:plays]
-      else
-        _games[objectid][:rating] = 0
-        _games[objectid][:comment] = ''
-        _games[objectid][:plays_since] = 0
-      end
+#        total_plays = game_info.css('numplays').first.text.to_i
+#        _games[objectid][:plays_since] = total_plays - _games[objectid][:plays]
+#      else
+#        _games[objectid][:rating] = 0
+#        _games[objectid][:comment] = ''
+#        _games[objectid][:plays_since] = 0
+#      end
     end
 
     # Sort games by rating
     _games.sort_by { |objectid, data| data[:rating] * -1 }
+  end
+
+  def print_games(_games)
+    # Print each game's name and number 
+    _games.each do |objectid, data|
+      puts data[:name]
+      #puts data.render
+    end
+    # print total number of new games this year
+    puts _games.length.to_s + " new games played in " + @options[:year].to_s + "."
   end
 
   def print_plays(_games)
