@@ -23,6 +23,8 @@ Using
 Once everything's loaded, run the script like so:
 
     ./bgg-new-to-you-year.rb --username <your_username>
+    
+Remember to put your username in quotes if it includes a space.
 
 By default the script will retrieve plays for the current year, if you need to
 pick a different year you can:
