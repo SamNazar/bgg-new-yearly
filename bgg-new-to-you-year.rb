@@ -4,7 +4,7 @@
 # list new games for a particular month and output a skeleton geeklist post with 
 # ratings.
 # 
-# The modified script merely lists the new games a user has logged in a given calendar year
+# The modified script lists the new games a user has logged in a given calendar year
 # and provides a count of those games.  This is to keep track of challenges like 51-in-15
 # 
 
@@ -18,8 +18,9 @@ class NewToYouYear
   def initialize
     todays_date = Date.today
     @options = {
-      :username     => 'sam n',
       :year         => todays_date.year,
+      :order        => :alpha,
+      :verbose      => false,
     }
 
     parse_options
@@ -41,16 +42,28 @@ class NewToYouYear
   def parse_options
     OptionParser.new do |opts|
       opts.banner = "Retrieve a listing of games that were new to you.
-    Usage: bgg-new-to-you-year.rb --username UserName --year 2015"
+    Usage: bgg-new-to-you-year.rb --username 'UserName' --year YYYY --order [alpha, date, plays] --verbose"
 
-      opts.on('-u username', '--username username', "Username") do |username|
+      opts.on('-u username', '--username username', "Username (required)") do |username|
         @options[:username] = username.to_s
       end
 
-      opts.on('-y YEAR', '--year YEAR', 'Year (four digits, e.g. 2015)') do |year|
+      opts.on('-y YEAR', '--year YEAR', Integer, 'Year (four digits, e.g. 2016)') do |year|
         @options[:year] = year.to_i
       end
+
+      opts.on('-o [ORDER]', '--order [ORDER]', [:alpha, :date, :plays], 'Order by (alpha, date, or plays)') do |order|
+        @options[:order] = order
+      end
+
+      opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+        @options[:verbose] = v
+      end
+
     end.parse!
+
+    raise OptionParser::MissingArgument if @options[:username].nil?
+
   end
 
   def retrieve_plays(start_date = @options[:start_date], end_date = @options[:end_date], username = @options[:username])
@@ -82,12 +95,19 @@ class NewToYouYear
         item = play.search('item')
         name = item.attr('name').content
         objectid = item.attr('objectid').content.to_i
+        dateplayed = Date.parse(play.attr('date'))
 
         # Create the hashes if need be
         unless _games.has_key? objectid
           _games[objectid] = Game.new
           _games[objectid][:objectid] = objectid
           _games[objectid][:name] = name
+          _games[objectid][:firstplayed] = dateplayed
+        end
+
+        # if date is earlier than a pre-existing one, set this to the first-played date
+        if (_games.has_key? objectid) and (_games[objectid][:firstplayed] < dateplayed)
+          _games[objectid][:firstplayed] = dateplayed
         end
 
         # Increment play count
@@ -96,7 +116,6 @@ class NewToYouYear
     end
 
     puts "TOTAL PAGES FOR YEAR GIVEN: " + page_num.to_s
-
 
     #make one request for grabbing all games played before given year
     #we can only get 100 plays at a time, so we do this in multiple pages
@@ -131,12 +150,26 @@ class NewToYouYear
   end
 
   def print_games(_games)
-    # sort games by title (name)
-    _games = _games.sort_by { |objectid, data| data[:name] }
+    case @options[:order]
+    when :alpha
+      puts "Listing games alphabetically"
+      # sort games by title (name)
+      _games = _games.sort_by { |objectid, data| data[:name] }
+    when :date
+      puts "Listing gamed by ascending date of first play in the year"
+      _games = _games.sort_by { |objectid, data| data[:firstplayed] }
+    when :plays
+      puts "Listing games by descending number of plays"
+      _games = _games.sort_by { |objectid, data| data[:plays] }.reverse
+    end
     puts "=== New Games Played by " + @options[:username].to_s + " in " + @options[:year].to_s + " ==="
     # Print each game's name
     _games.each do |objectid, data|
       puts data[:name]
+      if @options[:verbose] then
+        puts "  " + data[:plays].to_s + " play(s)"
+        puts "  First played on " + data[:firstplayed].to_s
+      end
     end
     # print total number of new games this year
     puts "=== " + _games.length.to_s + " new games in " + @options[:year].to_s + " ==="
